@@ -141,6 +141,11 @@ public class MainActivity extends Activity {
             }
         });
 
+        // স্ক্রিন পিনিং শুধু অ্যাপ খোলার সময় একবার চাওয়া হয়। "No thanks" দিলে আর বিরক্ত করবে না।
+        if (savedInstanceState == null) {
+            try { if (lockOn()) startLockTask(); } catch (Exception ignored) { }
+        }
+
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
@@ -173,8 +178,6 @@ public class MainActivity extends Activity {
         super.onResume();
         web.onResume();
         hideSystemBars();
-        // স্ক্রিন পিনিং: প্রথমবার ফোন একটা নিশ্চিতকরণ চাইবে, "Start" বা "ঠিক আছে" চাপুন
-        try { if (lockOn()) startLockTask(); } catch (Exception ignored) { }
     }
 
     @Override
