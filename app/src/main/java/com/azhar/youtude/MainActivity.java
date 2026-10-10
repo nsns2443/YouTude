@@ -40,7 +40,13 @@ public class MainActivity extends Activity {
 
         root = new FrameLayout(this);
         root.setBackgroundColor(0xFF000000);
-        web = new WebView(this);
+        // স্ক্রিন বন্ধ/মিনিমাইজ হলেও WebView-কে "দৃশ্যমান" ধরে রাখা, যাতে YouTube প্লেয়ার নিজে থেকে থেমে না যায়
+        web = new WebView(this) {
+            @Override
+            protected void onWindowVisibilityChanged(int visibility) {
+                if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE);
+            }
+        };
         root.addView(web, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
@@ -228,6 +234,13 @@ public class MainActivity extends Activity {
     protected void onPause() {
         // ইচ্ছা করেই web.onPause() ডাকা হয় না, যাতে স্ক্রিন বন্ধ করলেও শব্দ চলে
         super.onPause();
+        try { web.resumeTimers(); } catch (Exception e) { }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        try { web.resumeTimers(); } catch (Exception e) { }
     }
 
     @Override
