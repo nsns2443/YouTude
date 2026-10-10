@@ -1,6 +1,8 @@
 package com.azhar.youtude;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
@@ -9,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -51,6 +54,36 @@ public class MainActivity extends Activity {
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+
+        // ওয়েব অ্যাপ থেকে (PIN দেওয়ার পর) স্ক্রিন পিনিং খুলে অ্যাপ বন্ধ করার জন্য
+        web.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void exitKiosk() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try { stopLockTask(); } catch (Exception ignored) { }
+                        finishAndRemoveTask();
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public boolean isLock() {
+                return lockOn();
+            }
+
+            @JavascriptInterface
+            public void setLock(final boolean on) {
+                getSharedPreferences("kt", MODE_PRIVATE).edit().putBoolean("lock", on).apply();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try { if (on) startLockTask(); else stopLockTask(); } catch (Exception ignored) { }
+                    }
+                });
+            }
+        }, "AndroidApp");
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -98,6 +131,7 @@ public class MainActivity extends Activity {
                 customCallback = callback;
                 root.addView(view, new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                 web.setVisibility(View.GONE);
             }
 
@@ -114,10 +148,15 @@ public class MainActivity extends Activity {
         }
     }
 
+    private boolean lockOn() {
+        return getSharedPreferences("kt", MODE_PRIVATE).getBoolean("lock", true);
+    }
+
     private void hideCustom() {
         if (customView == null) return;
         root.removeView(customView);
         customView = null;
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         web.setVisibility(View.VISIBLE);
         if (customCallback != null) customCallback.onCustomViewHidden();
         customCallback = null;
@@ -135,7 +174,7 @@ public class MainActivity extends Activity {
         web.onResume();
         hideSystemBars();
         // স্ক্রিন পিনিং: প্রথমবার ফোন একটা নিশ্চিতকরণ চাইবে, "Start" বা "ঠিক আছে" চাপুন
-        try { startLockTask(); } catch (Exception ignored) { }
+        try { if (lockOn()) startLockTask(); } catch (Exception ignored) { }
     }
 
     @Override
