@@ -2,7 +2,7 @@ package com.azhar.youtude;
 
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.content.SharedPreferences;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private FrameLayout root;
+    private volatile String sharedText = "";
     private View customView;
     private WebChromeClient.CustomViewCallback customCallback;
 
@@ -67,6 +68,31 @@ public class MainActivity extends Activity {
                         finishAndRemoveTask();
                     }
                 });
+            }
+
+            @JavascriptInterface
+            public void setPlaying(final boolean on) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Intent svc = new Intent(MainActivity.this, PlaybackService.class);
+                            if (on) {
+                                if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc); else startService(svc);
+                            } else {
+                                stopService(svc);
+                            }
+                        } catch (Exception ignored) { }
+                    }
+                });
+            }
+
+            // YouTube থেকে Share করা লেখা একবার দিয়ে খালি করে দেয়
+            @JavascriptInterface
+            public String getShared() {
+                String t = sharedText;
+                sharedText = "";
+                return t == null ? "" : t;
             }
 
             @JavascriptInterface
@@ -141,6 +167,8 @@ public class MainActivity extends Activity {
             }
         });
 
+        if (savedInstanceState == null) takeShare(getIntent());
+
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
@@ -168,6 +196,21 @@ public class MainActivity extends Activity {
         customCallback = null;
     }
 
+    private void takeShare(Intent in) {
+        if (in == null) return;
+        if (Intent.ACTION_SEND.equals(in.getAction())) {
+            String t = in.getStringExtra(Intent.EXTRA_TEXT);
+            if (t != null && t.length() > 0) sharedText = t;
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        takeShare(intent);
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
@@ -183,7 +226,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
-        web.onPause();
+        // ইচ্ছা করেই web.onPause() ডাকা হয় না, যাতে স্ক্রিন বন্ধ করলেও শব্দ চলে
         super.onPause();
     }
 
@@ -216,6 +259,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        try { stopService(new Intent(this, PlaybackService.class)); } catch (Exception ignored) { }
         if (web != null) {
             ((ViewGroup) web.getParent()).removeView(web);
             web.destroy();
