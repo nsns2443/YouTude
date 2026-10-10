@@ -1,6 +1,7 @@
 package com.azhar.youtude;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
@@ -75,7 +76,6 @@ public class MainActivity extends Activity {
 
             @JavascriptInterface
             public void setLock(final boolean on) {
-                getSharedPreferences("kt", MODE_PRIVATE).edit().putBoolean("lock", on).apply();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -141,11 +141,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // স্ক্রিন পিনিং শুধু অ্যাপ খোলার সময় একবার চাওয়া হয়। "No thanks" দিলে আর বিরক্ত করবে না।
-        if (savedInstanceState == null) {
-            try { if (lockOn()) startLockTask(); } catch (Exception ignored) { }
-        }
-
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
@@ -153,8 +148,14 @@ public class MainActivity extends Activity {
         }
     }
 
+    // এখন সত্যিই পিন করা আছে কিনা (ফোনের নিজের অবস্থা থেকে)
     private boolean lockOn() {
-        return getSharedPreferences("kt", MODE_PRIVATE).getBoolean("lock", true);
+        try {
+            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            return am.getLockTaskModeState() != ActivityManager.LOCK_TASK_MODE_NONE;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void hideCustom() {
